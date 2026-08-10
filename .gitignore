@@ -1,0 +1,14 @@
+# Site configuration stays on the host — only *.env.example is committed.
+*.env
+!*.env.example
+
+# Credentials must never be committed.
+*.token
+.*token*
+*.pem
+*.key
+
+# Runtime output belongs outside the checkout; ignored here as a backstop.
+*.log
+*.jsonl
+logs/
