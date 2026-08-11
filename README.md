@@ -14,6 +14,32 @@ Small operational scripts and scheduled chores for Offworld Labs.
 | Script | What it does | Schedule |
 | --- | --- | --- |
 | [`standup-nudge/`](standup-nudge/) | Posts a fixed standup prompt to the "Offworld Labs" ClickUp chat channel | 09:00 Europe/London, Mon–Fri |
+| [`check-dead-code.sh`](check-dead-code.sh) | Dead-code gate (vulture) consumed by the Python repos as a pre-commit hook | On every commit / CI run in consumer repos |
+
+## Shared pre-commit hooks
+
+This repository is also a [pre-commit](https://pre-commit.com) hook repository.
+Consumers reference it by pinned tag, so there is exactly one copy of each hook
+and vendored drift cannot happen:
+
+    repos:
+      - repo: https://github.com/offworldlabs/ops
+        rev: dead-code-v1
+        hooks:
+          - id: dead-code
+
+| Hook | Script | Requires |
+| --- | --- | --- |
+| `dead-code` | [`check-dead-code.sh`](check-dead-code.sh) | `vulture==2.14` on `PATH` |
+
+Hook versions are published as tags named `<hook>-v<N>`. To change a hook: edit
+it here, run `bash tests/test-check-dead-code.sh`, merge, tag, then bump `rev`
+in the consumers (`pre-commit autoupdate` does the bump for you).
+
+The "Adding a script" conventions below are about scheduled chores on the VPS
+and do not apply to hooks — a hook takes no env config and nothing schedules it.
+Convention 4, fail loudly, very much does apply: the dead-code gate exits 127
+when vulture is missing rather than reporting a scan that never happened.
 
 ## Conventions
 

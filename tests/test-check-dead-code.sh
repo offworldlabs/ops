@@ -159,6 +159,14 @@ if command -v vulture >/dev/null 2>&1; then
     t_list_does_not_fail
     t_test_files_filtered
     t_positional_target_scopes_scan
+elif [ "${REQUIRE_VULTURE:-}" = "1" ]; then
+    # A skipped suite reporting success is the same class of bug as the gate
+    # this repo hosts: silence read as a clean result. CI sets
+    # REQUIRE_VULTURE=1 so a broken `pip install vulture` fails the job
+    # instead of quietly skipping the five tests below and going green.
+    echo "  FAIL  REQUIRE_VULTURE=1 but vulture is not resolvable on PATH" >&2
+    echo "        install did not happen or PATH is wrong; refusing to skip" >&2
+    exit 1
 else
     echo "  note  vulture not installed locally; CI runs these"
 fi
