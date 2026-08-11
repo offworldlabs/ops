@@ -71,9 +71,11 @@ raw="$(vulture . $WHITELIST \
 status=$?
 set -e
 
-# 0 = clean, 1 = findings. Anything else is vulture failing, not reporting.
+# vulture 2.x exit codes (vulture.utils.ExitCode): 0 NoDeadCode, 1 InvalidInput,
+# 2 InvalidCmdlineArguments, 3 DeadCode. Only 0 and 3 mean vulture ran fine —
+# 1 and 2 are real failures and must propagate rather than read as "clean".
 case "$status" in
-    0|1) ;;
+    0|3) ;;
     *)   echo "check-dead-code: vulture exited $status" >&2
          cat "$stderr_file" >&2
          exit "$status" ;;
