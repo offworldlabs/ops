@@ -5,9 +5,13 @@
 # Consumed by other repos as a pre-commit hook, pinned by rev:
 #
 #   - repo: https://github.com/offworldlabs/ops
-#     rev: dead-code-v1.0
+#     rev: <latest dead-code-v*.* tag — see the repo's tag list or README>
 #     hooks:
 #       - id: dead-code
+#
+# No version is named here on purpose. This file is frozen inside whatever tag
+# a consumer pinned, so any version written here is guaranteed wrong for every
+# release after it. The README on main is the current reference.
 #
 # Do not vendor this file. Change it here, publish a dead-code-v<MAJOR>.<MINOR>
 # tag (the dot matters — pre-commit warns "mutable reference" without one), then
