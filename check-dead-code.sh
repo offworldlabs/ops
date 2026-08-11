@@ -47,7 +47,7 @@ for arg in "$@"; do
         *)      TARGET="$arg" ;;
     esac
 done
-cd "$TARGET"
+cd "$TARGET" || { echo "check-dead-code: cannot enter target: $TARGET" >&2; exit 2; }
 
 # Fail closed (ops README convention 4: fail loudly). A missing tool is not a
 # clean scan, and this gate used to report one as the other: the shell's

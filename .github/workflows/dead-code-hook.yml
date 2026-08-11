@@ -29,7 +29,38 @@ jobs:
       # in .pre-commit-hooks.yaml — that would only surface in a consumer
       # repo, after the tag is published. try-repo runs the hook exactly as
       # a consumer's pre-commit would, without needing a published tag.
+      #
+      # `ops` itself has zero .py files, so pointing try-repo at it proves
+      # nothing — it can't tell "ran and found nothing" from "no-opped". Both
+      # steps below build a throwaway git repo (try-repo needs a real repo
+      # with a resolvable rev) with planted content and check the hook's
+      # actual verdict on it.
       - run: pip install pre-commit==4.6.2
 
-      - name: Exercise the hook manifest through pre-commit
-        run: pre-commit try-repo . dead-code --all-files
+      - name: Exercise the hook manifest through pre-commit (positive control)
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          cd "$tmp"
+          git init -q
+          git config user.email test@example.com
+          git config user.name test
+          printf 'def used():\n    return 1\n\n\ndef planted_orphan():\n    return 2\n\n\nprint(used())\n' > main.py
+          git add -A
+          if pre-commit try-repo "$GITHUB_WORKSPACE" dead-code --all-files 2>&1 | tee out.txt; then
+              echo "FAIL: hook did not catch planted dead code" >&2
+              exit 1
+          fi
+          grep -q planted_orphan out.txt || { echo "FAIL: hook ran but did not name the finding" >&2; exit 1; }
+
+      - name: Exercise the hook manifest through pre-commit (negative control)
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          cd "$tmp"
+          git init -q
+          git config user.email test@example.com
+          git config user.name test
+          printf 'def used():\n    return 1\n\n\nprint(used())\n' > main.py
+          git add -A
+          pre-commit try-repo "$GITHUB_WORKSPACE" dead-code --all-files
