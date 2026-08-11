@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
 #
-# Dead-code gate. Shared across offworldlabs Python repos; canonical copy lives
-# in offworldlabs/ops.
+# Dead-code gate. Canonical copy: offworldlabs/ops, check-dead-code.sh.
 #
-#   tools/check-dead-code.sh          # fail if anything unwhitelisted is dead
-#   tools/check-dead-code.sh --list   # print findings without failing
+# Consumed by other repos as a pre-commit hook, pinned by rev:
+#
+#   - repo: https://github.com/offworldlabs/ops
+#     rev: dead-code-v1
+#     hooks:
+#       - id: dead-code
+#
+# Do not vendor this file. Change it here, publish a dead-code-v<N> tag, then
+# bump rev in the consumers (`pre-commit autoupdate` does that for you).
+#
+#   check-dead-code.sh            # fail if anything unwhitelisted is dead
+#   check-dead-code.sh --list     # print findings without failing
+#   check-dead-code.sh backend    # scan a subdirectory
 #
 # Why this wraps vulture rather than calling it directly:
 #
@@ -19,7 +29,29 @@
 
 set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+# Scan the current directory by default; pre-commit sets CWD to the consumer
+# repo root. An optional positional argument scopes it (Tower-Finder passes
+# "backend"). This replaces a cd relative to the script's own location, which
+# is meaningless now the script lives in a pre-commit cache.
+LIST_ONLY=0
+TARGET="."
+for arg in "$@"; do
+    case "$arg" in
+        --list) LIST_ONLY=1 ;;
+        -*)     echo "check-dead-code: unknown option: $arg" >&2; exit 2 ;;
+        *)      TARGET="$arg" ;;
+    esac
+done
+cd "$TARGET"
+
+# Fail closed (ops README convention 4: fail loudly). A missing tool is not a
+# clean scan, and this gate used to report one as the other: the shell's
+# "command not found" went to /dev/null and `|| true` discarded exit 127.
+if ! command -v vulture >/dev/null 2>&1; then
+    echo "check-dead-code: vulture is not installed or not on PATH" >&2
+    echo "  install it with:  pip install vulture==2.14" >&2
+    exit 127
+fi
 
 EXCLUDE=".venv,scripts,htmlcov,__pycache__,node_modules,build,dist,*.egg-info"
 # Framework-dispatched handlers: Flask (@bp/@app) and FastAPI (@router/@app).
@@ -27,11 +59,30 @@ DECORATORS="@app.*,@bp.*,@router.*"
 WHITELIST=""
 [ -f vulture_whitelist.py ] && WHITELIST="vulture_whitelist.py"
 
-findings="$(vulture . $WHITELIST \
+stderr_file="$(mktemp)"
+trap 'rm -f "$stderr_file"' EXIT
+
+set +e
+raw="$(vulture . $WHITELIST \
     --min-confidence 60 \
     --exclude "$EXCLUDE" \
     --ignore-decorators "$DECORATORS" \
-    2>/dev/null | grep -vE '(^|/)tests?/|/test_|conftest\.py' || true)"
+    2>"$stderr_file")"
+status=$?
+set -e
+
+# 0 = clean, 1 = findings. Anything else is vulture failing, not reporting.
+case "$status" in
+    0|1) ;;
+    *)   echo "check-dead-code: vulture exited $status" >&2
+         cat "$stderr_file" >&2
+         exit "$status" ;;
+esac
+
+# `|| true` is correct here and only here: grep exits 1 when it filters
+# everything out, which is the clean case. The bug this script had was applying
+# the same `|| true` to the whole pipeline, where it also swallowed exit 127.
+findings="$(printf '%s\n' "$raw" | grep -vE '(^|/)tests?/|/test_|conftest\.py' || true)"
 
 if [ -z "$findings" ]; then
     echo "no dead code found"
@@ -40,7 +91,7 @@ fi
 
 echo "$findings"
 
-if [ "${1:-}" = "--list" ]; then
+if [ "$LIST_ONLY" = "1" ]; then
     exit 0
 fi
 
