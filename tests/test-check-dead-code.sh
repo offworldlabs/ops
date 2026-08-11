@@ -50,6 +50,15 @@ mkdirty_tests() {
     printf '%s' "$dir"
 }
 
+# A syntax error, not dead code. vulture exits 1 (InvalidInput) on this, not
+# 3 (DeadCode) — the gate must propagate that as a failure, not read it as a
+# clean scan the way the pre-fix version misread exit 3 as a crash.
+mkbroken() {
+    local dir; dir="$(mktemp -d)"
+    printf 'def broken(:\n    pass\n' >"$dir/bad.py"
+    printf '%s' "$dir"
+}
+
 # --- tests that run whether or not vulture is installed ---------------------
 
 t_missing_vulture_fails_closed() {
@@ -131,6 +140,21 @@ t_test_files_filtered() {
     rm -rf "$dir"
 }
 
+t_vulture_failure_propagates() {
+    local dir out rc
+    dir="$(mkbroken)"
+    out="$(cd "$dir" && bash "$SCRIPT" 2>&1)"; rc=$?
+    # Assert on the "vulture exited" message, not just non-zero — findings
+    # also exit non-zero, so rc alone can't distinguish a real vulture
+    # failure from a normal findings report.
+    if [ "$rc" -ne 0 ] && [[ "$out" == *"vulture exited"* ]]; then
+        ok "vulture failure (exit 1) propagates, not read as clean"
+    else
+        bad "vulture failure propagates" "rc=$rc out=$out"
+    fi
+    rm -rf "$dir"
+}
+
 t_positional_target_scopes_scan() {
     local root out rc
     root="$(mktemp -d)"
@@ -159,6 +183,7 @@ if command -v vulture >/dev/null 2>&1; then
     t_list_does_not_fail
     t_test_files_filtered
     t_positional_target_scopes_scan
+    t_vulture_failure_propagates
 elif [ "${REQUIRE_VULTURE:-}" = "1" ]; then
     # A skipped suite reporting success is the same class of bug as the gate
     # this repo hosts: silence read as a clean result. CI sets
