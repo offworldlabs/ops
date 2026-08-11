@@ -24,7 +24,7 @@ and vendored drift cannot happen:
 
     repos:
       - repo: https://github.com/offworldlabs/ops
-        rev: dead-code-v1
+        rev: dead-code-v1.0
         hooks:
           - id: dead-code
 
@@ -32,7 +32,11 @@ and vendored drift cannot happen:
 | --- | --- | --- |
 | `dead-code` | [`check-dead-code.sh`](check-dead-code.sh) | `vulture==2.14` on `PATH` |
 
-Hook versions are published as tags named `<hook>-v<N>`. To change a hook: edit
+Hook versions are published as tags named `<hook>-v<MAJOR>.<MINOR>`. **The dot is
+required, not cosmetic.** pre-commit warns "appears to be a mutable reference"
+for any `rev` containing neither a `.` nor pure hex, so a tag like
+`dead-code-v1` makes every consumer print a spurious warning on every run
+(`clientlib.py`, `WarnMutableRev`). To change a hook: edit
 it here, run `bash tests/test-check-dead-code.sh`, merge, tag, then bump `rev`
 in the consumers (`pre-commit autoupdate` does the bump for you).
 

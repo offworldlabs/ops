@@ -5,11 +5,12 @@
 # Consumed by other repos as a pre-commit hook, pinned by rev:
 #
 #   - repo: https://github.com/offworldlabs/ops
-#     rev: dead-code-v1
+#     rev: dead-code-v1.0
 #     hooks:
 #       - id: dead-code
 #
-# Do not vendor this file. Change it here, publish a dead-code-v<N> tag, then
+# Do not vendor this file. Change it here, publish a dead-code-v<MAJOR>.<MINOR>
+# tag (the dot matters — pre-commit warns "mutable reference" without one), then
 # bump rev in the consumers (`pre-commit autoupdate` does that for you).
 #
 #   check-dead-code.sh            # fail if anything unwhitelisted is dead
