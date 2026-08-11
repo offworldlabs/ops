@@ -59,6 +59,16 @@ mkbroken() {
     printf '%s' "$dir"
 }
 
+# A decorated, otherwise-unreferenced handler — the Flask/FastAPI dispatch
+# pattern --ignore-decorators exists for (Tower-Finder's backend is exactly
+# this shape). vulture can't see the framework's dispatch wiring, so without
+# the flag this reads as dead.
+mkdirty_decorated() {
+    local dir; dir="$(mktemp -d)"
+    printf 'def used():\n    return 1\n\n\n@app.route("/foo")\ndef handler_endpoint():\n    return "hi"\n\n\nprint(used())\n' >"$dir/main.py"
+    printf '%s' "$dir"
+}
+
 # --- tests that run whether or not vulture is installed ---------------------
 
 t_missing_vulture_fails_closed() {
@@ -199,6 +209,35 @@ t_whitelist_suppresses_finding() {
     rm -rf "$dir"
 }
 
+# --ignore-decorators (check-dead-code.sh:63) is what stops every Flask/
+# FastAPI route handler reading as dead — Tower-Finder's backend is exactly
+# this shape and depends on it directly. The script has no flag to disable
+# its own --ignore-decorators, so the first half calls vulture directly
+# with the script's other options (same EXCLUDE, same --min-confidence, no
+# --ignore-decorators) to establish the finding is real; the second half
+# runs the actual script and proves the flag suppresses it. As with the
+# whitelist test, both halves are required — the second half alone would
+# also pass if the scan found nothing at all.
+t_ignore_decorators_suppresses_handlers() {
+    local dir out rc
+    dir="$(mkdirty_decorated)"
+    out="$(cd "$dir" && vulture . --min-confidence 60 \
+        --exclude ".venv,scripts,htmlcov,__pycache__,node_modules,build,dist,*.egg-info" 2>&1)"; rc=$?
+    if [ "$rc" -eq 3 ] && [[ "$out" == *"handler_endpoint"* ]]; then
+        ok "decorators test: scan without --ignore-decorators finds the handler dead"
+    else
+        bad "decorators test: scan without --ignore-decorators finds the handler dead" "rc=$rc out=$out"
+    fi
+
+    out="$(cd "$dir" && bash "$SCRIPT" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ] && [[ "$out" == *"no dead code found"* ]]; then
+        ok "--ignore-decorators suppresses the decorated handler"
+    else
+        bad "--ignore-decorators suppresses the decorated handler" "rc=$rc out=$out"
+    fi
+    rm -rf "$dir"
+}
+
 t_positional_target_scopes_scan() {
     local root out rc
     root="$(mktemp -d)"
@@ -230,6 +269,7 @@ if command -v vulture >/dev/null 2>&1; then
     t_positional_target_scopes_scan
     t_vulture_failure_propagates
     t_whitelist_suppresses_finding
+    t_ignore_decorators_suppresses_handlers
 elif [ "${REQUIRE_VULTURE:-}" = "1" ]; then
     # A skipped suite reporting success is the same class of bug as the gate
     # this repo hosts: silence read as a clean result. CI sets
