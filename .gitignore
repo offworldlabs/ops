@@ -12,3 +12,6 @@
 *.log
 *.jsonl
 logs/
+
+# Agent scratch: ledgers, task briefs, review packages. Never part of a change.
+.superpowers/

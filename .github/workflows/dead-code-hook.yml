@@ -1,0 +1,35 @@
+name: dead-code hook
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Matches the pin every consumer uses.
+      - run: pip install vulture==2.14
+
+      - name: Test check-dead-code.sh
+        env:
+          REQUIRE_VULTURE: 1
+        run: bash tests/test-check-dead-code.sh
+
+      # tests/test-check-dead-code.sh invokes the script directly and never
+      # goes through pre-commit, so it can't catch a broken entry:/language:
+      # in .pre-commit-hooks.yaml — that would only surface in a consumer
+      # repo, after the tag is published. try-repo runs the hook exactly as
+      # a consumer's pre-commit would, without needing a published tag.
+      - run: pip install pre-commit==4.6.2
+
+      - name: Exercise the hook manifest through pre-commit
+        run: pre-commit try-repo . dead-code --all-files

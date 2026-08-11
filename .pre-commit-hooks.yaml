@@ -1,0 +1,7 @@
+- id: dead-code
+  name: dead code (vulture)
+  description: Fail if unwhitelisted dead code is present. Requires vulture on PATH.
+  entry: check-dead-code.sh
+  language: script
+  pass_filenames: false
+  always_run: true
