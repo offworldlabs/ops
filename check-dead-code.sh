@@ -47,7 +47,7 @@ for arg in "$@"; do
         *)      TARGET="$arg" ;;
     esac
 done
-cd "$TARGET"
+cd "$TARGET" || { echo "check-dead-code: cannot enter target: $TARGET" >&2; exit 2; }
 
 # Fail closed (ops README convention 4: fail loudly). A missing tool is not a
 # clean scan, and this gate used to report one as the other: the shell's
@@ -62,6 +62,10 @@ EXCLUDE=".venv,scripts,htmlcov,__pycache__,node_modules,build,dist,*.egg-info"
 # Framework-dispatched handlers: Flask (@bp/@app) and FastAPI (@router/@app).
 DECORATORS="@app.*,@bp.*,@router.*"
 WHITELIST=""
+# Redundant in practice: vulture already picks this up when it walks ".", so
+# passing it explicitly changes nothing (verified against vulture 2.14). Kept
+# as an explicit statement of intent; removing it is safe but would need a
+# version bump to reach consumers.
 [ -f vulture_whitelist.py ] && WHITELIST="vulture_whitelist.py"
 
 stderr_file="$(mktemp)"

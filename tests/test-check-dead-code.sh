@@ -59,23 +59,52 @@ mkbroken() {
     printf '%s' "$dir"
 }
 
+# A decorated, otherwise-unreferenced handler — the Flask/FastAPI dispatch
+# pattern --ignore-decorators exists for (Tower-Finder's backend is exactly
+# this shape). vulture can't see the framework's dispatch wiring, so without
+# the flag this reads as dead.
+mkdirty_decorated() {
+    local dir; dir="$(mktemp -d)"
+    printf 'def used():\n    return 1\n\n\n@app.route("/foo")\ndef handler_endpoint():\n    return "hi"\n\n\nprint(used())\n' >"$dir/main.py"
+    printf '%s' "$dir"
+}
+
 # --- tests that run whether or not vulture is installed ---------------------
 
 t_missing_vulture_fails_closed() {
     local dir out rc
     dir="$(mkclean)"
     out="$(cd "$dir" && PATH="$NO_VULTURE_PATH" bash "$SCRIPT" 2>&1)"; rc=$?
-    if [ "$rc" -eq 0 ]; then
-        bad "missing vulture exits non-zero" \
-            "exited 0 — reported a scan that never happened"
+    # Assert the exact code, not just non-zero: 127 is this gate's whole
+    # fail-closed contract, and other paths (findings, bad usage) also exit
+    # non-zero, so a loose check can't tell them apart.
+    if [ "$rc" -eq 127 ]; then
+        ok "missing vulture exits exactly 127"
     else
-        ok "missing vulture exits non-zero (got $rc)"
+        bad "missing vulture exits exactly 127" \
+            "exited $rc — reported a scan that never happened, or used the wrong code"
     fi
     case "$out" in
         *vulture*) ok "missing vulture names the tool" ;;
         *)         bad "missing vulture names the tool" "no mention of vulture in: $out" ;;
     esac
     rm -rf "$dir"
+}
+
+# cd failure must not be mistaken for "dead code found" (both exit 1 under a
+# bare `cd`). A bad target is a usage error, so it gets exit 2 — the code
+# this script already uses for other usage errors — and must name the target
+# so a typo'd path in a consumer's pre-commit config is diagnosable from CI
+# output alone.
+t_bad_target_exits_2() {
+    local target out rc
+    target="$(mktemp -u)/does-not-exist"
+    out="$(PATH="$NO_VULTURE_PATH" bash "$SCRIPT" "$target" 2>&1)"; rc=$?
+    if [ "$rc" -eq 2 ] && [[ "$out" == *"$target"* ]]; then
+        ok "nonexistent target exits 2 and names the target"
+    else
+        bad "nonexistent target exits 2 and names the target" "rc=$rc out=$out"
+    fi
 }
 
 t_unknown_option_rejected() {
@@ -155,6 +184,60 @@ t_vulture_failure_propagates() {
     rm -rf "$dir"
 }
 
+# vulture_whitelist.py pickup (check-dead-code.sh:65) is what keeps every
+# consumer repo green — all six have one. Both halves are required: checking
+# only "whitelisted symbol passes" would also pass if the scan found nothing
+# at all, so this first proves the fixture fails without a whitelist, then
+# adds a whitelist for exactly that symbol and proves it now passes.
+t_whitelist_suppresses_finding() {
+    local dir out rc
+    dir="$(mkdirty)"
+    out="$(cd "$dir" && bash "$SCRIPT" 2>&1)"; rc=$?
+    if [ "$rc" -eq 1 ] && [[ "$out" == *"orphan_function"* ]]; then
+        ok "whitelist test: unwhitelisted dead code fails first"
+    else
+        bad "whitelist test: unwhitelisted dead code fails first" "rc=$rc out=$out"
+    fi
+
+    printf 'from main import orphan_function\norphan_function\n' >"$dir/vulture_whitelist.py"
+    out="$(cd "$dir" && bash "$SCRIPT" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ] && [[ "$out" == *"no dead code found"* ]]; then
+        ok "vulture_whitelist.py suppresses the whitelisted symbol"
+    else
+        bad "vulture_whitelist.py suppresses the whitelisted symbol" "rc=$rc out=$out"
+    fi
+    rm -rf "$dir"
+}
+
+# --ignore-decorators (check-dead-code.sh:63) is what stops every Flask/
+# FastAPI route handler reading as dead — Tower-Finder's backend is exactly
+# this shape and depends on it directly. The script has no flag to disable
+# its own --ignore-decorators, so the first half calls vulture directly
+# with the script's other options (same EXCLUDE, same --min-confidence, no
+# --ignore-decorators) to establish the finding is real; the second half
+# runs the actual script and proves the flag suppresses it. As with the
+# whitelist test, both halves are required — the second half alone would
+# also pass if the scan found nothing at all.
+t_ignore_decorators_suppresses_handlers() {
+    local dir out rc
+    dir="$(mkdirty_decorated)"
+    out="$(cd "$dir" && vulture . --min-confidence 60 \
+        --exclude ".venv,scripts,htmlcov,__pycache__,node_modules,build,dist,*.egg-info" 2>&1)"; rc=$?
+    if [ "$rc" -eq 3 ] && [[ "$out" == *"handler_endpoint"* ]]; then
+        ok "decorators test: scan without --ignore-decorators finds the handler dead"
+    else
+        bad "decorators test: scan without --ignore-decorators finds the handler dead" "rc=$rc out=$out"
+    fi
+
+    out="$(cd "$dir" && bash "$SCRIPT" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ] && [[ "$out" == *"no dead code found"* ]]; then
+        ok "--ignore-decorators suppresses the decorated handler"
+    else
+        bad "--ignore-decorators suppresses the decorated handler" "rc=$rc out=$out"
+    fi
+    rm -rf "$dir"
+}
+
 t_positional_target_scopes_scan() {
     local root out rc
     root="$(mktemp -d)"
@@ -175,6 +258,7 @@ t_positional_target_scopes_scan() {
 echo "fail-closed:"
 t_missing_vulture_fails_closed
 t_unknown_option_rejected
+t_bad_target_exits_2
 
 echo "behaviour:"
 if command -v vulture >/dev/null 2>&1; then
@@ -184,6 +268,8 @@ if command -v vulture >/dev/null 2>&1; then
     t_test_files_filtered
     t_positional_target_scopes_scan
     t_vulture_failure_propagates
+    t_whitelist_suppresses_finding
+    t_ignore_decorators_suppresses_handlers
 elif [ "${REQUIRE_VULTURE:-}" = "1" ]; then
     # A skipped suite reporting success is the same class of bug as the gate
     # this repo hosts: silence read as a clean result. CI sets
