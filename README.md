@@ -24,7 +24,7 @@ and vendored drift cannot happen:
 
     repos:
       - repo: https://github.com/offworldlabs/ops
-        rev: dead-code-v1.0
+        rev: dead-code-v1.1
         hooks:
           - id: dead-code
 
