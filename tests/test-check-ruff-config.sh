@@ -161,8 +161,14 @@ t_missing_pyproject_exits_2() {
     local dir out rc
     dir="$(mktemp -d)"
     out="$(python3 "$SCRIPT" "$dir" 2>&1)"; rc=$?
-    if [ "$rc" -eq 2 ]; then ok "no pyproject.toml exits 2"
-    else bad "no pyproject exits 2" "rc=$rc out=$out"; fi
+    # Assert the message, not just the code: python itself exits 2 when it
+    # cannot open the script, so a bare rc check passes even when
+    # check-ruff-config.py does not exist.
+    if [ "$rc" -eq 2 ] && [[ "$out" == *"no pyproject.toml at"* ]]; then
+        ok "no pyproject.toml exits 2 and says so"
+    else
+        bad "no pyproject exits 2 and says so" "rc=$rc out=$out"
+    fi
     rm -rf "$dir"
 }
 
