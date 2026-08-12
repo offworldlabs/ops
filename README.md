@@ -15,6 +15,7 @@ Small operational scripts and scheduled chores for Offworld Labs.
 | --- | --- | --- |
 | [`standup-nudge/`](standup-nudge/) | Posts a fixed standup prompt to the "Offworld Labs" ClickUp chat channel | 09:00 Europe/London, Mon–Fri |
 | [`check-dead-code.sh`](check-dead-code.sh) | Dead-code gate (vulture) consumed by the Python repos as a pre-commit hook | On every commit / CI run in consumer repos |
+| [`ruff-shared.toml`](ruff-shared.toml) | Canonical ruff configuration, enforced in consumer repos by the `ruff-config` hook | On every commit / CI run in consumer repos |
 
 ## Shared pre-commit hooks
 
@@ -31,14 +32,21 @@ and vendored drift cannot happen:
 | Hook | Script | Requires |
 | --- | --- | --- |
 | `dead-code` | [`check-dead-code.sh`](check-dead-code.sh) | `vulture==2.14` on `PATH` |
+| `ruff-config` | [`check-ruff-config.py`](check-ruff-config.py) | Python 3.11+ (`tomllib`) |
 
-Hook versions are published as tags named `<hook>-v<MAJOR>.<MINOR>`. **The dot is
-required, not cosmetic.** pre-commit warns "appears to be a mutable reference"
-for any `rev` containing neither a `.` nor pure hex, so a tag like
-`dead-code-v1` makes every consumer print a spurious warning on every run
-(`clientlib.py`, `WarnMutableRev`). To change a hook: edit
-it here, run `bash tests/test-check-dead-code.sh`, merge, tag, then bump `rev`
-in the consumers (`pre-commit autoupdate` does the bump for you).
+Hook versions are published as repo-level tags named `hooks-v<MAJOR>.<MINOR>`.
+**The dot is required, not cosmetic.** pre-commit warns "appears to be a mutable
+reference" for any `rev` containing neither a `.` nor pure hex
+(`clientlib.py`, `WarnMutableRev`), so `hooks-v1` would make every consumer
+print a spurious warning on every run.
+
+Tags are repo-level rather than per-hook because pre-commit pins the whole
+repository at one `rev` — two hooks cannot be versioned independently from a
+single repo. The older `dead-code-v1.0` and `dead-code-v1.1` tags remain valid
+for consumers that have not moved.
+
+To change a hook: edit it here, run both suites in `tests/`, merge, tag, then
+bump `rev` in the consumers (`pre-commit autoupdate` does the bump for you).
 
 The "Adding a script" conventions below are about scheduled chores on the VPS
 and do not apply to hooks — a hook takes no env config and nothing schedules it.

@@ -94,8 +94,9 @@ def main(argv: list[str]) -> int:
         for problem in problems:
             print(f"  - {problem}", file=sys.stderr)
         print(file=sys.stderr)
-        print("Edit offworldlabs/ops:ruff-shared.toml if the standard should change,", file=sys.stderr)
-        print("then publish a new hooks-v*.* tag. Do not diverge locally.", file=sys.stderr)
+        print("Copy the entries above into this repo's pyproject.toml to match the", file=sys.stderr)
+        print("shared standard. If the standard itself should change instead, edit", file=sys.stderr)
+        print("offworldlabs/ops:ruff-shared.toml and publish a new hooks-v*.* tag.", file=sys.stderr)
         return 1
 
     return 0
