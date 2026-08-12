@@ -1,0 +1,70 @@
+name: hooks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Matches the pin every consumer uses.
+      - run: pip install vulture==2.14 pre-commit==4.6.2
+
+      - name: Test check-dead-code.sh
+        env:
+          REQUIRE_VULTURE: 1
+        run: bash tests/test-check-dead-code.sh
+
+      - name: Test check-ruff-config.py
+        run: bash tests/test-check-ruff-config.sh
+
+      # A try-repo run that can only ever pass proves nothing. Plant a finding,
+      # require the hook to catch it, then require it to pass once removed.
+      - name: Exercise the dead-code hook through pre-commit
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"; cd "$tmp"; git init -q
+          printf 'def used():\n    return 1\n\n\ndef planted_orphan():\n    return 2\n\n\nprint(used())\n' > main.py
+          git add -A
+          if pre-commit try-repo "$GITHUB_WORKSPACE" dead-code --all-files 2>&1 | tee out.txt; then
+              echo "FAIL: hook did not catch planted dead code" >&2; exit 1
+          fi
+          grep -q planted_orphan out.txt || { echo "FAIL: hook ran but did not name the finding" >&2; exit 1; }
+          printf 'def used():\n    return 1\n\n\nprint(used())\n' > main.py
+          git add -A
+          pre-commit try-repo "$GITHUB_WORKSPACE" dead-code --all-files
+
+      - name: Exercise the ruff-config hook through pre-commit
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"; cd "$tmp"; git init -q
+          # A deliberately drifted config: the canonical select list minus SIM.
+          cat > pyproject.toml <<'TOML'
+          [project]
+          name = "drifted"
+          version = "0.1.0"
+
+          [tool.ruff]
+          line-length = 120
+
+          [tool.ruff.lint]
+          select = ["E", "W", "F", "I", "B", "UP", "S"]
+          TOML
+          git add -A
+          if pre-commit try-repo "$GITHUB_WORKSPACE" ruff-config --all-files 2>&1 | tee out.txt; then
+              echo "FAIL: hook did not catch the drifted config" >&2; exit 1
+          fi
+          grep -q "SIM" out.txt || { echo "FAIL: hook ran but did not name the missing rule" >&2; exit 1; }
+          # Now the compliant version: canonical keys verbatim plus a target-version.
+          { printf '[project]\nname = "compliant"\nversion = "0.1.0"\n\n'; cat "$GITHUB_WORKSPACE/ruff-shared.toml"; } > pyproject.toml
+          git add -A
+          pre-commit try-repo "$GITHUB_WORKSPACE" ruff-config --all-files

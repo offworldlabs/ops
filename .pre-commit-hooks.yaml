@@ -5,3 +5,10 @@
   language: script
   pass_filenames: false
   always_run: true
+- id: ruff-config
+  name: ruff config matches the shared standard
+  description: Fail if this repo's shared ruff keys have drifted from ops/ruff-shared.toml.
+  entry: check-ruff-config.py
+  language: script
+  pass_filenames: false
+  always_run: true
