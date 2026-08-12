@@ -25,9 +25,13 @@ and vendored drift cannot happen:
 
     repos:
       - repo: https://github.com/offworldlabs/ops
-        rev: dead-code-v1.1
+        rev: hooks-v1.0
         hooks:
-          - id: dead-code
+          - id: dead-code      # requires vulture==2.14 on PATH
+          - id: ruff-config
+
+If a consumer's Python lives in a subdirectory, add `args: [<dir>]` to both
+hooks — Tower-Finder, whose backend is not at repo root, needs exactly that.
 
 | Hook | Script | Requires |
 | --- | --- | --- |
