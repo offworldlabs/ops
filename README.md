@@ -13,7 +13,7 @@ Small operational scripts and scheduled chores for Offworld Labs.
 
 | Script | What it does | Schedule |
 | --- | --- | --- |
-| [`standup-nudge/`](standup-nudge/) | Posts a fixed standup prompt to the "Offworld Labs" ClickUp chat channel | 09:00 Europe/London, Mon–Fri |
+| [`weekly-checkin/`](weekly-checkin/) | Posts a fixed weekly check-in prompt to the "Offworld Labs" ClickUp chat channel | 09:00 Europe/London, Mondays |
 | [`check-dead-code.sh`](check-dead-code.sh) | Dead-code gate (vulture) consumed by the Python repos as a pre-commit hook | On every commit / CI run in consumer repos |
 | [`ruff-shared.toml`](ruff-shared.toml) | Canonical ruff configuration, enforced in consumer repos by the `ruff-config` hook | On every commit / CI run in consumer repos |
 
