@@ -50,8 +50,46 @@ repository at one `rev` — two hooks cannot be versioned independently from a
 single repo. The older `dead-code-v1.0` and `dead-code-v1.1` tags remain valid
 for consumers that have not moved.
 
-To change a hook: edit it here, run both suites in `tests/`, merge, tag, then
-bump `rev` in the consumers (`pre-commit autoupdate` does the bump for you).
+### Tags here are immutable, and that is enforced
+
+A git tag is mutable by default: `git push --force` moves it, and consumers
+that pinned it fetch whatever it points at *now*. CI runners are always
+cache-cold, so a moved tag would reach every consumer on its next run with no
+diff in any consuming repo to show for it. Nine repos pin `hooks-v1.0`.
+
+The `Immutable hook version tags` ruleset closes that off at source. It targets
+`refs/tags/hooks-v*` and `refs/tags/dead-code-v*`, and blocks force-pushes and
+deletions with no bypass actors — **not even admins**, deliberately. Creating a
+new tag is unaffected, so cutting `hooks-v1.1` works exactly as before.
+
+The trade is that a tag pushed to the wrong commit cannot be quietly corrected.
+Cut a new tag instead; that is the honest fix anyway, since anyone who already
+consumed the bad one would never see a correction. If a tag genuinely must be
+removed, add it to the ruleset's `exclude` list, delete it, and take it back
+out — which leaves an audit trail, unlike a force-push.
+
+Consumers therefore do not need to pin by commit SHA. That was considered and
+rejected: `pre-commit autoupdate` silently rewrites SHA pins back to tags, so
+the protection would evaporate the first time anyone ran the documented bump
+command. See ClickUp 86cb4jjbv for the full decision.
+
+### Changing a hook
+
+Edit it here, run both suites in `tests/`, merge, tag, then bump `rev` in the
+consumers:
+
+    pre-commit autoupdate --repo https://github.com/offworldlabs/ops
+
+**Use `--repo`.** A bare `pre-commit autoupdate` updates *every* repo in the
+consumer's config. In the six consumers that also run ruff through pre-commit
+(everything except node-infra, retina-gui and retina-node, which pip-install
+ruff in CI instead), that silently bumps `astral-sh/ruff-pre-commit` as a side
+effect of bumping the ops hook. Those repos' CI runs `pre-commit run
+--all-files`, so the new ruff takes effect in CI on the same commit — the exact
+"an unpinned linter picks up new rules on release and turns a green branch red
+without anything in this repo changing" outcome their neighbouring
+`# Pinned deliberately` comments exist to prevent. Bump ruff on purpose, in its
+own commit, or not at all.
 
 The "Adding a script" conventions below are about scheduled chores on the VPS
 and do not apply to hooks — a hook takes no env config and nothing schedules it.
