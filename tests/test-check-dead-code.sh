@@ -60,7 +60,7 @@ mkbroken() {
 }
 
 # A decorated, otherwise-unreferenced handler — the Flask/FastAPI dispatch
-# pattern --ignore-decorators exists for (Tower-Finder's backend is exactly
+# pattern --ignore-decorators exists for (retina-server's backend is exactly
 # this shape). vulture can't see the framework's dispatch wiring, so without
 # the flag this reads as dead.
 mkdirty_decorated() {
@@ -210,7 +210,7 @@ t_whitelist_suppresses_finding() {
 }
 
 # --ignore-decorators (check-dead-code.sh:63) is what stops every Flask/
-# FastAPI route handler reading as dead — Tower-Finder's backend is exactly
+# FastAPI route handler reading as dead — retina-server's backend is exactly
 # this shape and depends on it directly. The script has no flag to disable
 # its own --ignore-decorators, so the first half calls vulture directly
 # with the script's other options (same EXCLUDE, same --min-confidence, no
