@@ -31,7 +31,7 @@ and vendored drift cannot happen:
           - id: ruff-config
 
 If a consumer's Python lives in a subdirectory, add `args: [<dir>]` to both
-hooks — Tower-Finder, whose backend is not at repo root, needs exactly that.
+hooks — retina-server, whose backend is not at repo root, needs exactly that.
 
 | Hook | Script | Requires |
 | --- | --- | --- |

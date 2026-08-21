@@ -126,7 +126,7 @@ PY
     rm -rf "$dir"
 }
 
-# Whitespace and ordering must not matter — Tower-Finder is semantically
+# Whitespace and ordering must not matter — retina-server is semantically
 # identical to the baseline but formats its comments differently.
 t_whitespace_and_order_ignored() {
     local dir out rc
@@ -145,7 +145,7 @@ PY
     rm -rf "$dir"
 }
 
-# Tower-Finder's shape: config lives in a subdirectory.
+# retina-server's shape: config lives in a subdirectory.
 t_subdirectory_argument() {
     local root dir out rc
     root="$(mktemp -d)"; mkdir -p "$root/backend"

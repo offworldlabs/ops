@@ -8,7 +8,7 @@ accepts only local paths, and there is no rev:-style sharing for pyproject.toml.
 
 Comparison is SEMANTIC, not textual. `select`, `ignore` and the values inside
 `per-file-ignores` are compared as sets, so comment whitespace and ordering are
-irrelevant. This matters concretely: Tower-Finder's config is semantically
+irrelevant. This matters concretely: retina-server's config is semantically
 identical to the baseline but pads its comments differently, and a text diff
 would report false drift.
 

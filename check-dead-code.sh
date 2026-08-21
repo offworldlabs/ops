@@ -35,7 +35,7 @@
 set -euo pipefail
 
 # Scan the current directory by default; pre-commit sets CWD to the consumer
-# repo root. An optional positional argument scopes it (Tower-Finder passes
+# repo root. An optional positional argument scopes it (retina-server passes
 # "backend"). This replaces a cd relative to the script's own location, which
 # is meaningless now the script lives in a pre-commit cache.
 LIST_ONLY=0
